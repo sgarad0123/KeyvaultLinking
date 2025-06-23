@@ -2,100 +2,93 @@ trigger: none
 
 variables:
   - group: vg-create-vg-source
-  - group: devops-secrets-vg
+  - group: devops-secrets-vg 
 
 pool:
   name: AKS
   vmImage: 'ubuntu-latest'
 
 stages:
-- stage: CheckAndCreateVariableGroup
+# Stage 1: Check/Create Variable Group
+- stage: EnsureVariableGroup
   jobs:
-  - job: CreateVGIfMissing
+  - job: CheckVG
     steps:
     - task: Bash@3
       inputs:
-        targetType: inline
+        targetType: 'inline'
         script: |
           echo "🔍 Checking if variable group '$VG_NAME' exists..."
-          VG_EXISTS=$(az devops variable-group list \
-            --org https://dev.azure.com/$(System.CollectionUri) \
-            --project "$(System.TeamProject)" \
-            --query "[?name=='$VG_NAME'].name" -o tsv)
+          GROUP_JSON=$(az devops variable-group list --project "$(System.TeamProject)" --query "[?name=='$VG_NAME']" -o json)
+          GROUP_ID=$(echo "$GROUP_JSON" | jq -r '.[0].id')
 
-          if [[ -z "$VG_EXISTS" ]]; then
-            echo "⚙️ Creating variable group: $VG_NAME"
-            az devops variable-group create --project "$(System.TeamProject)" \
-              --name "$VG_NAME" \
-              --variables tempKey=tempValue
-            echo "✅ Variable group created."
+          if [[ "$GROUP_ID" == "null" ]]; then
+            echo "🚀 Variable group '$VG_NAME' does not exist. Creating..."
+            az devops variable-group create --project "$(System.TeamProject)" --name "$VG_NAME" --variables dummyKey=dummyValue
+            echo "✅ Created variable group '$VG_NAME'"
           else
-            echo "✅ Variable group already exists: $VG_NAME"
+            echo "✅ Variable group '$VG_NAME' already exists."
           fi
       env:
         AZURE_DEVOPS_EXT_PATVAR: $(AZURE_DEVOPS_PAT)
-      displayName: '🔍 Create Variable Group If Not Exists'
+      displayName: '🔍 Ensure Variable Group Exists'
 
-- stage: SyncSecrets
-  dependsOn: CheckAndCreateVariableGroup
+# Stage 2: Validate Secrets
+- stage: ValidateAndLinkSecrets
+  dependsOn: EnsureVariableGroup
   jobs:
-  - job: ValidateAndAddSecrets
+  - job: ValidateSecrets
     steps:
     - task: AzureCLI@2
       inputs:
-        azureSubscription: $(SERVICE_CONNECTION)
+        azureSubscription: $(AZURE_SUBSCRIPTION)
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-          IFS=',' read -ra SECRET_ARRAY <<< "$SECRET_KEYS"
+          echo "🔐 Validating and retrieving secrets from Key Vault '$KEY_VAULT_NAME'..."
+          IFS=',' read -ra KEYS <<< "$SECRET_KEYS"
+          echo "" > found_secrets.txt
 
-          for SECRET_NAME in "${SECRET_ARRAY[@]}"; do
-            echo "🔎 Checking secret '$SECRET_NAME' in Key Vault '$KEY_VAULT_NAME'..."
-
+          for SECRET_NAME in "${KEYS[@]}"; do
+            echo "🔎 Checking secret: $SECRET_NAME"
             if az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "$SECRET_NAME" &> secret.json; then
               VALUE=$(jq -r '.value' secret.json)
-              echo "✅ Secret '$SECRET_NAME' exists. Value: $VALUE"
+              echo "✅ Secret '$SECRET_NAME' found."
+              echo "$SECRET_NAME=$VALUE" >> found_secrets.txt
+              echo "##vso[task.setvariable variable=$SECRET_NAME;issecret=true]$VALUE"
             else
-              echo "❌ Secret '$SECRET_NAME' not found. Adding it..."
-              NEW_VALUE="PLACEHOLDER-VALUE"  # Replace this with logic to fetch/generate real value
-              az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "$SECRET_NAME" --value "$NEW_VALUE"
-              echo "✅ Secret '$SECRET_NAME' created with placeholder value."
+              echo "⚠️ Secret '$SECRET_NAME' not found in Key Vault. Skipping..."
             fi
           done
-      displayName: '🔐 Validate & Add Secrets in Key Vault'
+      displayName: '🔐 Validate Key Vault Secrets'
 
-- stage: LinkSecretsToVariableGroup
-  dependsOn: SyncSecrets
+# Stage 3: Add Secrets to Variable Group
+- stage: AddToVariableGroup
+  dependsOn: ValidateAndLinkSecrets
   jobs:
-  - job: LinkSecrets
+  - job: AddSecrets
     steps:
-    - task: AzureKeyVault@2
-      inputs:
-        azureSubscription: $(SERVICE_CONNECTION)
-        KeyVaultName: $(KEY_VAULT_NAME)
-        SecretsFilter: $(SECRET_KEYS)
-        RunAsPreJob: false
-        env: true
-        name: DownloadSecrets
-
     - task: Bash@3
       inputs:
-        targetType: inline
+        targetType: 'inline'
         script: |
-          echo "🔗 Linking secrets to variable group '$VG_NAME'..."
-          IFS=',' read -ra KEYS <<< "$SECRET_KEYS"
-          JSON_DATA="{"
-          for KEY in "${KEYS[@]}"; do
-            VALUE=${!KEY}
-            JSON_DATA+="\"$KEY\":{\"value\":\"$VALUE\"},"
-          done
-          JSON_DATA="${JSON_DATA::-1}}"
+          echo "📦 Preparing to add secrets to variable group '$VG_NAME'..."
+          JSON_PAYLOAD="{"
 
-          echo "Generated JSON payload: $JSON_DATA"
+          while IFS= read -r line; do
+            SECRET_KEY=$(echo $line | cut -d= -f1)
+            SECRET_VAL=$(echo $line | cut -d= -f2-)
+            JSON_PAYLOAD+="\"$SECRET_KEY\":{\"value\":\"$SECRET_VAL\"},"
+          done < found_secrets.txt
+
+          JSON_PAYLOAD="${JSON_PAYLOAD%,}}"
+
+          echo "🔗 Final payload: $JSON_PAYLOAD"
 
           az devops variable-group update \
+            --project "$(System.TeamProject)" \
             --group-name "$VG_NAME" \
-            --variables "$JSON_DATA"
+            --variables "$JSON_PAYLOAD"
       env:
         AZURE_DEVOPS_EXT_PATVAR: $(AZURE_DEVOPS_PAT)
-      displayName: '🔗 Add Secrets to Variable Group'
+      displayName: '🔗 Add Available Secrets to Variable Group'
