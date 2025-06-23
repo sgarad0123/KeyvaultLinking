@@ -1,7 +1,8 @@
 trigger: none
 
 variables:
-  - group: vg-group-vg-source
+  - group: vg-create-vg-source
+  - group: devops-secrets-vg
 
 pool:
   name: AKS
