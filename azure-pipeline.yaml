@@ -1,4 +1,4 @@
-""trigger: none
+trigger: none
 
 variables:
   - group: vg-create-vg-source
@@ -88,4 +88,3 @@ stages:
         - PT
         - PROD
         - DR
-"
