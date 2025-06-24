@@ -13,32 +13,32 @@ stages:
           vmImage: 'ubuntu-latest'
         steps:
           - task: Bash@3
-            name: Validate
             inputs:
+              targetType: 'filePath'
               filePath: './validate-secret.sh'
-              env:
-                app_id: $(app_id)
-                secretName: $(secretName)
-                ENV: $(ENV)
+            env:
+              app_id: $(app_id)
+              secretName: $(secretName)
+              ENV: $(ENV)
 
           - task: Bash@3
-            name: UpdateSecret
             inputs:
+              targetType: 'filePath'
               filePath: './update-secret.sh'
-              env:
-                keyVaultName: $(keyVaultName)
-                secretName: $(secretName)
-                secretValue: $(secretValue)
-                ENV: $(ENV)
+            env:
+              keyVaultName: $(keyVaultName)
+              secretName: $(secretName)
+              secretValue: $(secretValue)
+              ENV: $(ENV)
 
           - task: Bash@3
-            name: RetrieveSecret
             inputs:
+              targetType: 'filePath'
               filePath: './retrieve-secret.sh'
-              env:
-                keyVaultName: $(keyVaultName)
-                secretName: $(secretName)
-                ENV: $(ENV)
+            env:
+              keyVaultName: $(keyVaultName)
+              secretName: $(secretName)
+              ENV: $(ENV)
 
   - stage: CreateAndLinkVariableGroup
     displayName: 'Create & Link Variable Group'
@@ -51,16 +51,16 @@ stages:
           vmImage: 'ubuntu-latest'
         steps:
           - task: Bash@3
-            name: CreateVariableGroup
             inputs:
+              targetType: 'filePath'
               filePath: './create-keyvault-linked-vg.sh'
-              env:
-                org: $(org)
-                project: $(project)
-                app_id: $(app_id)
-                trackname: $(trackname)
-                keyVaultName: $(keyVaultName)
-                serviceConnectionId: $(serviceConnectionId)
-                azure-devops-pat: $(azure-devops-pat)
-                secretsToAdd: $(secretsToAdd)
-                ENV: $(ENV)
+            env:
+              org: $(org)
+              project: $(project)
+              app_id: $(app_id)
+              trackname: $(trackname)
+              keyVaultName: $(keyVaultName)
+              serviceConnectionId: $(serviceConnectionId)
+              azure-devops-pat: $(azure-devops-pat)
+              secretsToAdd: $(secretsToAdd)
+              ENV: $(ENV)
