@@ -3,70 +3,77 @@ parameters:
     type: object
 
 stages:
-- ${{ each env in parameters.environments }}:
-  - stage: ValidateAndUpdateSecrets_${{ env }}
-    displayName: 'Validate, Update and Retrieve Secrets for ${{ env }}'
-    variables:
-      environment: ${{ env }}
-    jobs:
-      - job: Validate_Update_Retrieve
-        displayName: 'Run secret validation, update, and retrieval'
-        pool:
-          name: AKS
-          vmImage: 'ubuntu-latest'
-        steps:
-          - task: Bash@3
-            inputs:
-              targetType: 'filePath'
-              filePath: './validate-secret.sh'
-            env:
-              app_id: $(app_id)
-              secretName: $(secretName)
-              ENV: $(environment)
+  - ${{ each env in parameters.environments }}:
+    - stage: ValidateAndUpdateSecrets_${{ env }}
+      displayName: 'Validate, Update and Retrieve Secrets for ${{ env }}'
+      variables:
+        environment: ${{ env }}
+      jobs:
+        - job: Validate_Update_Retrieve
+          displayName: 'Run secret validation, update, and retrieval'
+          pool:
+            vmImage: 'ubuntu-latest'
+          steps:
+            - task: AzureCLI@2
+              displayName: '🔍 Validate Secret Name'
+              inputs:
+                azureSubscription: $(serviceConnectionId)
+                scriptType: 'bash'
+                scriptLocation: 'scriptPath'
+                scriptPath: './validate-secret.sh'
+              env:
+                app_id: $(app_id)
+                secretName: $(secretName)
+                ENV: $(environment)
 
-          - task: Bash@3
-            inputs:
-              targetType: 'filePath'
-              filePath: './update-secret.sh'
-            env:
-              keyVaultName: $(keyVaultName)
-              secretName: $(secretName)
-              secretValue: $(secretValue)
-              ENV: $(environment)
+            - task: AzureCLI@2
+              displayName: '🔧 Update Secret in Key Vault'
+              inputs:
+                azureSubscription: $(serviceConnectionId)
+                scriptType: 'bash'
+                scriptLocation: 'scriptPath'
+                scriptPath: './update-secret.sh'
+              env:
+                keyVaultName: $(keyVaultName)
+                secretName: $(secretName)
+                secretValue: $(secretValue)
+                ENV: $(environment)
 
-          - task: Bash@3
-            inputs:
-              targetType: 'filePath'
-              filePath: './retrieve-secret.sh'
-            env:
-              keyVaultName: $(keyVaultName)
-              secretName: $(secretName)
-              ENV: $(environment)
+            - task: AzureCLI@2
+              displayName: '📥 Retrieve Secret Value'
+              inputs:
+                azureSubscription: $(serviceConnectionId)
+                scriptType: 'bash'
+                scriptLocation: 'scriptPath'
+                scriptPath: './retrieve-secret.sh'
+              env:
+                keyVaultName: $(keyVaultName)
+                secretName: $(secretName)
+                ENV: $(environment)
 
-  - stage: CreateAndLinkVariableGroup_${{ env }}
-    displayName: 'Create & Link Variable Group for ${{ env }}'
-    dependsOn: ValidateAndUpdateSecrets_${{ env }}
-    condition: succeeded()
-    variables:
-      environment: ${{ env }}
-    jobs:
-      - job: CreateVG
-        displayName: 'Create Variable Group and Link KeyVault Secrets'
-        pool:
-          name: AKS
-          vmImage: 'ubuntu-latest'
-        steps:
-          - task: Bash@3
-            inputs:
-              targetType: 'filePath'
-              filePath: './create-keyvault-linked-vg.sh'
-            env:
-              org: $(org)
-              project: $(project)
-              app_id: $(app_id)
-              trackname: $(trackname)
-              keyVaultName: $(keyVaultName)
-              serviceConnectionId: $(serviceConnectionId)
-              azure-devops-pat: $(azure-devops-pat)
-              secretsToAdd: $(secretsToAdd)
-              ENV: $(environment)
+    - stage: CreateAndLinkVariableGroup_${{ env }}
+      displayName: 'Create & Link Variable Group for ${{ env }}'
+      dependsOn: ValidateAndUpdateSecrets_${{ env }}
+      condition: succeeded()
+      variables:
+        environment: ${{ env }}
+      jobs:
+        - job: CreateVG
+          displayName: 'Create Variable Group and Link KeyVault Secrets'
+          pool:
+            vmImage: 'ubuntu-latest'
+          steps:
+            - task: Bash@3
+              inputs:
+                targetType: 'filePath'
+                filePath: './create-keyvault-linked-vg.sh'
+              env:
+                org: $(org)
+                project: $(project)
+                app_id: $(app_id)
+                trackname: $(trackname)
+                keyVaultName: $(keyVaultName)
+                serviceConnectionId: $(serviceConnectionId)
+                azure-devops-pat: $(azure-devops-pat)
+                secretsToAdd: $(secretsToAdd)
+                ENV: $(environment)
