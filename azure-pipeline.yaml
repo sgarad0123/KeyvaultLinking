@@ -27,7 +27,7 @@ stages:
           - task: Bash@3
             inputs:
               targetType: 'filePath'
-              filePath: './scripts/update-secret.sh'
+              filePath: './update-secret.sh'
             env:
               keyVaultName: $(keyVaultName)
               secretName: $(secretName)
@@ -37,7 +37,7 @@ stages:
           - task: Bash@3
             inputs:
               targetType: 'filePath'
-              filePath: './scripts/retrieve-secret.sh'
+              filePath: './retrieve-secret.sh'
             env:
               keyVaultName: $(keyVaultName)
               secretName: $(secretName)
@@ -59,7 +59,7 @@ stages:
           - task: Bash@3
             inputs:
               targetType: 'filePath'
-              filePath: './scripts/create-keyvault-linked-vg.sh'
+              filePath: './create-keyvault-linked-vg.sh'
             env:
               org: $(org)
               project: $(project)
@@ -85,7 +85,7 @@ stages:
           - task: Bash@3
             inputs:
               targetType: 'filePath'
-              filePath: './scripts/validate-secret.sh'
+              filePath: './validate-secret.sh'
             env:
               app_id: $(app_id)
               secretName: $(secretName)
@@ -104,7 +104,7 @@ stages:
           - task: Bash@3
             inputs:
               targetType: 'filePath'
-              filePath: './scripts/retrieve-secret.sh'
+              filePath: './retrieve-secret.sh'
             env:
               keyVaultName: $(keyVaultName)
               secretName: $(secretName)
@@ -126,7 +126,7 @@ stages:
           - task: Bash@3
             inputs:
               targetType: 'filePath'
-              filePath: './scripts/create-keyvault-linked-vg.sh'
+              filePath: './create-keyvault-linked-vg.sh'
             env:
               org: $(org)
               project: $(project)
