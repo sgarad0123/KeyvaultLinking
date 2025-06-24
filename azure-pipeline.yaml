@@ -1,0 +1,143 @@
+trigger: none
+
+variables:
+  - group: vg-create-vg-source
+
+stages:
+  - stage: ValidateAndUpdateSecrets_DEV
+    displayName: 'Validate, Update and Retrieve Secrets for DEV'
+    variables:
+      environment: 'DEV'
+    jobs:
+      - job: Validate_Update_Retrieve
+        displayName: 'Run secret validation, update, and retrieval'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Bash@3
+            inputs:
+              targetType: 'filePath'
+              filePath: './scripts/validate-secret.sh'
+            env:
+              app_id: $(app_id)
+              secretName: $(secretName)
+              ENV: $(environment)
+
+          - task: Bash@3
+            inputs:
+              targetType: 'filePath'
+              filePath: './scripts/update-secret.sh'
+            env:
+              keyVaultName: $(keyVaultName)
+              secretName: $(secretName)
+              secretValue: $(secretValue)
+              ENV: $(environment)
+
+          - task: Bash@3
+            inputs:
+              targetType: 'filePath'
+              filePath: './scripts/retrieve-secret.sh'
+            env:
+              keyVaultName: $(keyVaultName)
+              secretName: $(secretName)
+              ENV: $(environment)
+
+  - stage: CreateAndLinkVariableGroup_DEV
+    displayName: 'Create & Link Variable Group for DEV'
+    dependsOn: ValidateAndUpdateSecrets_DEV
+    condition: succeeded()
+    variables:
+      environment: 'DEV'
+    jobs:
+      - job: CreateVG
+        displayName: 'Create Variable Group and Link KeyVault Secrets'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Bash@3
+            inputs:
+              targetType: 'filePath'
+              filePath: './scripts/create-keyvault-linked-vg.sh'
+            env:
+              org: $(org)
+              project: $(project)
+              app_id: $(app_id)
+              trackname: $(trackname)
+              keyVaultName: $(keyVaultName)
+              serviceConnectionId: $(serviceConnectionId)
+              azure-devops-pat: $(azure-devops-pat)
+              secretsToAdd: $(secretsToAdd)
+              ENV: $(environment)
+
+  - stage: ValidateAndUpdateSecrets_SIT
+    displayName: 'Validate, Update and Retrieve Secrets for SIT'
+    variables:
+      environment: 'SIT'
+    jobs:
+      - job: Validate_Update_Retrieve
+        displayName: 'Run secret validation, update, and retrieval'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Bash@3
+            inputs:
+              targetType: 'filePath'
+              filePath: './scripts/validate-secret.sh'
+            env:
+              app_id: $(app_id)
+              secretName: $(secretName)
+              ENV: $(environment)
+
+          - task: Bash@3
+            inputs:
+              targetType: 'filePath'
+              filePath: './scripts/update-secret.sh'
+            env:
+              keyVaultName: $(keyVaultName)
+              secretName: $(secretName)
+              secretValue: $(secretValue)
+              ENV: $(environment)
+
+          - task: Bash@3
+            inputs:
+              targetType: 'filePath'
+              filePath: './scripts/retrieve-secret.sh'
+            env:
+              keyVaultName: $(keyVaultName)
+              secretName: $(secretName)
+              ENV: $(environment)
+
+  - stage: CreateAndLinkVariableGroup_SIT
+    displayName: 'Create & Link Variable Group for SIT'
+    dependsOn: ValidateAndUpdateSecrets_SIT
+    condition: succeeded()
+    variables:
+      environment: 'SIT'
+    jobs:
+      - job: CreateVG
+        displayName: 'Create Variable Group and Link KeyVault Secrets'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Bash@3
+            inputs:
+              targetType: 'filePath'
+              filePath: './scripts/create-keyvault-linked-vg.sh'
+            env:
+              org: $(org)
+              project: $(project)
+              app_id: $(app_id)
+              trackname: $(trackname)
+              keyVaultName: $(keyVaultName)
+              serviceConnectionId: $(serviceConnectionId)
+              azure-devops-pat: $(azure-devops-pat)
+              secretsToAdd: $(secretsToAdd)
+              ENV: $(environment)
+
+  - template: keyvault-template.yaml
+    parameters:
+      environments:
+        - UAT
+        - PT
+        - PROD
+        - DR
