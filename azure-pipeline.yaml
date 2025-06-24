@@ -1,4 +1,4 @@
-trigger: none
+""trigger: none
 
 variables:
   - group: vg-create-vg-source
@@ -12,32 +12,40 @@ stages:
       - job: Validate_Update_Retrieve
         displayName: 'Run secret validation, update, and retrieval'
         pool:
-          name: AKS
           vmImage: 'ubuntu-latest'
         steps:
-          - task: Bash@3
+          - task: AzureCLI@2
+            displayName: '🔍 Validate Secret Name'
             inputs:
-              targetType: 'filePath'
-              filePath: './validate-secret.sh'
+              azureSubscription: $(serviceConnectionId)
+              scriptType: 'bash'
+              scriptLocation: 'scriptPath'
+              scriptPath: './validate-secret.sh'
             env:
               app_id: $(app_id)
               secretName: $(secretName)
               ENV: $(environment)
 
-          - task: Bash@3
+          - task: AzureCLI@2
+            displayName: '🔧 Update Secret in Key Vault'
             inputs:
-              targetType: 'filePath'
-              filePath: './update-secret.sh'
+              azureSubscription: $(serviceConnectionId)
+              scriptType: 'bash'
+              scriptLocation: 'scriptPath'
+              scriptPath: './update-secret.sh'
             env:
               keyVaultName: $(keyVaultName)
               secretName: $(secretName)
               secretValue: $(secretValue)
               ENV: $(environment)
 
-          - task: Bash@3
+          - task: AzureCLI@2
+            displayName: '📥 Retrieve Secret Value'
             inputs:
-              targetType: 'filePath'
-              filePath: './retrieve-secret.sh'
+              azureSubscription: $(serviceConnectionId)
+              scriptType: 'bash'
+              scriptLocation: 'scriptPath'
+              scriptPath: './retrieve-secret.sh'
             env:
               keyVaultName: $(keyVaultName)
               secretName: $(secretName)
@@ -53,74 +61,6 @@ stages:
       - job: CreateVG
         displayName: 'Create Variable Group and Link KeyVault Secrets'
         pool:
-          name: AKS
-          vmImage: 'ubuntu-latest'
-        steps:
-          - task: Bash@3
-            inputs:
-              targetType: 'filePath'
-              filePath: './create-keyvault-linked-vg.sh'
-            env:
-              org: $(org)
-              project: $(project)
-              app_id: $(app_id)
-              trackname: $(trackname)
-              keyVaultName: $(keyVaultName)
-              serviceConnectionId: $(serviceConnectionId)
-              azure-devops-pat: $(azure-devops-pat)
-              secretsToAdd: $(secretsToAdd)
-              ENV: $(environment)
-
-  - stage: ValidateAndUpdateSecrets_SIT
-    displayName: 'Validate, Update and Retrieve Secrets for SIT'
-    variables:
-      environment: 'SIT'
-    jobs:
-      - job: Validate_Update_Retrieve
-        displayName: 'Run secret validation, update, and retrieval'
-        pool:
-          name: AKS
-          vmImage: 'ubuntu-latest'
-        steps:
-          - task: Bash@3
-            inputs:
-              targetType: 'filePath'
-              filePath: './validate-secret.sh'
-            env:
-              app_id: $(app_id)
-              secretName: $(secretName)
-              ENV: $(environment)
-
-          - task: Bash@3
-            inputs:
-              targetType: 'filePath'
-              filePath: './scripts/update-secret.sh'
-            env:
-              keyVaultName: $(keyVaultName)
-              secretName: $(secretName)
-              secretValue: $(secretValue)
-              ENV: $(environment)
-
-          - task: Bash@3
-            inputs:
-              targetType: 'filePath'
-              filePath: './retrieve-secret.sh'
-            env:
-              keyVaultName: $(keyVaultName)
-              secretName: $(secretName)
-              ENV: $(environment)
-
-  - stage: CreateAndLinkVariableGroup_SIT
-    displayName: 'Create & Link Variable Group for SIT'
-    dependsOn: ValidateAndUpdateSecrets_SIT
-    condition: succeeded()
-    variables:
-      environment: 'SIT'
-    jobs:
-      - job: CreateVG
-        displayName: 'Create Variable Group and Link KeyVault Secrets'
-        pool:
-          name: AKS
           vmImage: 'ubuntu-latest'
         steps:
           - task: Bash@3
@@ -141,7 +81,9 @@ stages:
   - template: keyvault-template.yaml
     parameters:
       environments:
+        - SIT
         - UAT
         - PT
         - PROD
         - DR
+"
