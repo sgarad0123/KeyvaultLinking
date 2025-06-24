@@ -12,6 +12,7 @@ stages:
       - job: Validate_Update_Retrieve
         displayName: 'Run secret validation, update, and retrieval'
         pool:
+          name: AKS
           vmImage: 'ubuntu-latest'
         steps:
           - task: Bash@3
@@ -52,6 +53,7 @@ stages:
       - job: CreateVG
         displayName: 'Create Variable Group and Link KeyVault Secrets'
         pool:
+          name: AKS
           vmImage: 'ubuntu-latest'
         steps:
           - task: Bash@3
@@ -77,6 +79,7 @@ stages:
       - job: Validate_Update_Retrieve
         displayName: 'Run secret validation, update, and retrieval'
         pool:
+          name: AKS
           vmImage: 'ubuntu-latest'
         steps:
           - task: Bash@3
@@ -117,6 +120,7 @@ stages:
       - job: CreateVG
         displayName: 'Create Variable Group and Link KeyVault Secrets'
         pool:
+          name: AKS
           vmImage: 'ubuntu-latest'
         steps:
           - task: Bash@3
