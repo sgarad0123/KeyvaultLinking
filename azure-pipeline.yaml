@@ -18,7 +18,7 @@ stages:
           - task: Bash@3
             inputs:
               targetType: 'filePath'
-              filePath: '../validate-secret.sh'
+              filePath: './validate-secret.sh'
             env:
               app_id: $(app_id)
               secretName: $(secretName)
